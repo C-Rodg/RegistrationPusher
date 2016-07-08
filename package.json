@@ -1,0 +1,22 @@
+{
+  "name": "api-attendease-pusher",
+  "version": "1.0.0",
+  "description": "A registration puller for Attendease-Chloe version. Used at Spring One-July 2016",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [
+    "api",
+    "attendease",
+    "soap",
+    "event"
+  ],
+  "author": "Curtis Rodgers",
+  "license": "MIT",
+  "dependencies": {
+    "bluebird": "^3.4.1",
+    "js2xmlparser2": "^0.2.0",
+    "node-fetch": "^1.5.3"
+  }
+}
