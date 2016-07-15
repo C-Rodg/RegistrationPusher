@@ -5,7 +5,8 @@ var Promise = require("bluebird");
 var js2xmlparser = require("js2xmlparser2");
 
 // Settings
-var fieldsToPull = ['first_name', 'last_name', 'email', 'company', 'twitter'];
+var fieldsToPull = ['id', 'first_name', 'last_name', 'email', 'company', 'twitter', 'diet', 'code'];
+fieldsToPull.push('walkIn');
 var c_MAXNUMBERTOPUSH = 300;
 var vUsername = 'USERNAME';
 var vPassword = 'PASSWORD';
@@ -30,6 +31,9 @@ var js2xmlOptions = {
 	}
 };
 
+var lastPullDateTime = moment("0001-06-21T01:00:00Z");
+var walkInDateTime = moment("2016-07-15T16:00:00Z");
+
 function convertBufferToJson(httpResponse) {
 	var promise = new Promise(function(resolve, reject) {
 		if(httpResponse && httpResponse.statusText === "OK"){
@@ -37,6 +41,55 @@ function convertBufferToJson(httpResponse) {
 		} else {
 			var date = new Date();
 			reject("\n" + date + "\nProblem connecting to API.");
+		}
+	});
+	return promise;
+}
+
+function filterUpdates(regList) {
+	var promise = new Promise(function(resolve, reject) {		
+		if(regList > 0){
+			var tempRecentUpdateDateTime = moment('0001-06-01T01:00:00Z');
+			var newRegList = [];
+			for(var i = 0, j = regList.length; i < j; i++) {
+				if(regList[i].hasOwnProperty('updateddate')){
+					var updatedDate = moment(regList[i]['updateddate']);
+					if(updatedDate > lastPullDateTime){
+						newRegList.push(regList[i]);
+						if(updatedDate > tempRecentUpdateDateTime) {
+							tempRecentUpdateDateTime = updatedDate;
+						}
+					}
+				}
+			}
+			lastPullDateTime = tempRecentUpdateDateTime;
+			console.log("new most recent last pull time is:\n" + lastPullDateTime.format("YYYY-MM-DD HH:mm:ss"));
+			resolve(newRegList);
+		} else {
+			var date = new Date();
+			reject("\n" + date + "\nPulled attendees, but no data.");
+		}
+	});
+	return promise;
+}
+
+function tagWalkIns(regList) {
+	var promise = new Promise(function(resolve, reject) {
+		if(regList > 0) {
+			for(var i = 0, j = regList.length; i < j; i++) {
+				if(regList[i].hasOwnProperty('registerdate')) {
+					var registerDate = moment(regList[i]['registerdate']);
+					if(registerDate > walkInDateTime){
+						regList[i]['walkIn'] = true;
+					} else {
+						regList[i]['walkIn'] = false;
+					}
+				}
+			}
+			resolve(regList);
+		} else {
+			var date = new Date();
+			reject("\n" + date + "\nFiltered attendees, but no data.");
 		}
 	});
 	return promise;
@@ -65,7 +118,7 @@ function filterFields(regList) {
 				resolve(newRegList);
 			} else {
 				var date = new Date();
-				reject("\n" + date + "\nPulled attendees, but no data.");
+				reject("\n" + date + "\nFiltered and tagged walkins, but no data remains.");
 			}
 		} else {
 			var date = new Date();
@@ -169,6 +222,8 @@ function consoleLog(data) {
 function startApplication() {
 	fetch(endpoint, { method: "GET", headers: { Authorization : authorization }})
 		.then(convertBufferToJson)
+		.then(filterUpdates)
+		.then(tagWalkIns)
 		.then(filterFields)
 		.then(sizeRegList)
 		.then(convertToXml)
